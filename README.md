@@ -6,6 +6,8 @@
   <img src="https://img.shields.io/github/stars/SOLRICKS/comfyui-solricks?style=flat-square&color=gold" alt="Stars">
 </p>
 
+> Available in **ComfyUI Manager**. Search for **SOLRICKS**.
+
 Anti-aliasing nodes for ComfyUI image and video workflows. VideoTAADLAA combines temporal anti-aliasing, jittered sampling, and DLAA-inspired refinement for cleaner, more stable edges. VideoAdaptiveAA provides a lightweight edge-focused cleanup pass for aliasing-prone regions.
 
 ---
@@ -104,7 +106,7 @@ For LTX or Wan workflows, run this node separately as the final post-process.
 ---
 
 ## Installation
-1. Install via **ComfyUI Manager** (Search for "Anti-Aliasing Pack") or clone this repo into your `custom_nodes` folder.
+1. Install via **ComfyUI Manager** by searching for **SOLRICKS** or **Anti-Aliasing Pack**, or clone this repo into your `custom_nodes` folder.
 2. The required model files are included with this custom node.
 3. No additional Python dependencies are required.
 
