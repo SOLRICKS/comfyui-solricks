@@ -456,7 +456,7 @@ class VideoTAADLAA:
         )
 
     def _luma_edge(self, image, net):
-        # Return luma and a Sobel edge map for the current frame.
+        # luma + Sobel edge map
         luma = rgb_luma(image)
         sx = F.conv2d(luma, net.sobel_x, padding=1)
         sy = F.conv2d(luma, net.sobel_y, padding=1)
@@ -465,7 +465,7 @@ class VideoTAADLAA:
         return luma, edge
 
     def _edge_aa(self, image, thr, blur_radius, net, strength=1.0):
-        # Soften likely aliasing edges.
+        # edge AA
         strength = clamp01(strength)
 
         if blur_radius <= 0 or strength <= MIN_EFFECT_STRENGTH:
@@ -485,7 +485,7 @@ class VideoTAADLAA:
         return image * (1.0 - mask) + blurred * mask
 
     def _fine_line_aa(self, image, net, strength):
-        # Reduce shimmer on thin dark lines without blurring the whole frame.
+        # thin-line shimmer control
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -530,7 +530,7 @@ class VideoTAADLAA:
         return torch.lerp(image, aa_target, blend).clamp(0.0, 1.0)
 
     def _specular_detail(self, image, net, highlight_mask, strength):
-        # Add back small bright details, but avoid clipped highlights.
+        # controlled specular detail
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -573,7 +573,7 @@ class VideoTAADLAA:
         return (image + spec_residual * spec_mask * strength).clamp(0.0, 1.0)
 
     def _micro_contrast(self, image, highlight_mask, strength):
-        # Add a little local contrast from fine detail.
+        # local micro-contrast
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -627,7 +627,7 @@ class VideoTAADLAA:
         net,
         strength: float,
     ) -> torch.Tensor:
-        # Reduce bright and dark halos around strong edges.
+        # edge dehalo
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -675,7 +675,7 @@ class VideoTAADLAA:
         net,
         strength: float,
     ) -> torch.Tensor:
-        # Reduce small chroma fringes near edges.
+        # chroma fringe cleanup
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -725,8 +725,7 @@ class VideoTAADLAA:
         clean_chroma = chroma + chroma_delta * mask * strength
         out = luma + clean_chroma
 
-        # Chroma cleanup should not change perceived brightness.
-        # Broadcast the single-channel luma correction over RGB to keep the original luma target.
+        # keep luma stable after chroma cleanup
         luma_error = rgb_luma(out) - luma
         out = out - luma_error
 
@@ -757,8 +756,7 @@ class VideoTAADLAA:
 
         B, C, H, W = image.shape
         
-        # Sobel direction gives the local edge normal.
-        # Sample both sides to build a small edge reconstruction target.
+        # sample along the local edge normal
         nx = sx / edge.clamp(min=1e-6)
         ny = sy / edge.clamp(min=1e-6)
 
@@ -796,7 +794,7 @@ class VideoTAADLAA:
             align_corners=False,
         )
         
-        # Average the two offset samples and limit the delta so thin edges improve gently.
+        # limit the reconstruction delta
         reconstructed = (sample_pos + sample_neg) * 0.5
 
         delta = reconstructed - image
@@ -849,8 +847,7 @@ class VideoTAADLAA:
             stride=1,
         )
 
-        # Specular detail is treated as positive high-frequency residual.
-        # Blend only the bright residual to reduce sparkle without smearing the frame.
+        # stabilize bright high-frequency residuals
         current_spec = (image - local_avg).clamp(min=0.0)
         previous_spec = (previous - prev_local_avg).clamp(min=0.0)
 
@@ -866,8 +863,7 @@ class VideoTAADLAA:
             TEMPORAL_SPEC_DETAIL_SLOPE
         )
 
-        # Stabilize only pixels that are locally stable between frames.
-        # Moving highlights should stay responsive instead of being pulled from history.
+        # avoid pulling moving highlights from history
         local_motion = torch.abs(luma - prev_luma)
         local_stable = 1.0 - torch.clamp(
             local_motion / TEMPORAL_SPEC_MOTION_SCALE,
@@ -911,7 +907,7 @@ class VideoTAADLAA:
         motion_gate: float,
         strength: float,
     ) -> torch.Tensor:
-        # Adjust local luma contrast while keeping RGB balance stable.
+        # local luma tone adjust
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -977,7 +973,7 @@ class VideoTAADLAA:
             self.detail_local_tonemap_limit,
         )
 
-        # Apply tone changes as a luma ratio so RGB color balance is mostly preserved.
+        # preserve RGB balance with a luma ratio
         target_luma = (luma + luma_delta).clamp(0.0, 1.0)
 
         ratio = target_luma / luma.clamp(min=1e-6)
@@ -994,7 +990,7 @@ class VideoTAADLAA:
         motion_gate: float,
         strength: float,
     ) -> torch.Tensor:
-        # Reuse stable fur/hair detail from the previous frame.
+        # stable fur/hair detail reuse
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -1049,7 +1045,7 @@ class VideoTAADLAA:
         return torch.clamp(out, 0.0, 1.0)
 
     def _temporal_refine(self, current, previous, strength=0.35, motion_threshold=0.08):
-        # Blend stable areas with the previous frame to reduce temporal shimmer.
+        # temporal shimmer control
         if previous is None:
             return current
 
@@ -1074,7 +1070,7 @@ class VideoTAADLAA:
         strength,
         motion_threshold,
     ):
-        # Reuse stable fine detail from the previous frame to reduce flicker.
+        # stable fine-detail reuse
         if previous is None:
             return current
 
@@ -1352,7 +1348,7 @@ class VideoTAADLAA:
             return 0
 
     def _tile_size_for_vram(self, vram_mb):
-        # For CPU or unknown VRAM, use the safe tile size.
+        # safe fallback for CPU/unknown VRAM
         if vram_mb <= 0:
             return 512
             
@@ -1521,16 +1517,14 @@ class VideoTAADLAA:
         debug_stats,
         frame_index,
     ):
-        # The model can slightly shift global brightness.
-        # Match the model output mean back to the source frame before blending.
+        # match output mean before blending
         dlaa_mean = dlaa_out.mean(dim=(1, 2, 3), keepdim=True)
         rgb_mean = rgb.mean(dim=(1, 2, 3), keepdim=True)
         dlaa_out = dlaa_out - dlaa_mean + rgb_mean
         
         preset_model_weight = self.preset_model_weight.get(preset, 1.00)
         
-        # Use the model as a residual correction instead of replacing the frame outright.
-        # This keeps the node closer to the original image and reduces over-processing.
+        # residual model blend
         model_delta = dlaa_out - rgb
         
         model_delta_value = None
@@ -1552,8 +1546,7 @@ class VideoTAADLAA:
         luma = rgb_luma(dlaa_out)
         highlight_mask = torch.sigmoid((luma - self.highlight_threshold) * self.highlight_slope)
         
-        # Pull very bright areas slightly back toward the source frame.
-        # This helps avoid clipped or plastic-looking highlights after detail passes.
+        # protect bright highlights
         highlight_pre_blend = self.highlight_pre_blend * (
             self.detail_highlight_pre_scale if preset == "Detail" else 1.0
         )
@@ -1759,7 +1752,7 @@ class VideoTAADLAA:
         debug_stats,
         frame_index,
     ):
-        # DLAA inference, detail refinement, texture, tone, and temporal passes.
+        # main DLAA pipeline
         
         if dlaa_strength <= 0:
             return rgb, prev_dlaa_output, None
@@ -1946,8 +1939,7 @@ class VideoTAADLAA:
         is_single_image = (B == 1)
         run_preset = "Photo" if is_single_image else preset
         
-        # Process RGB only, then attach alpha or any extra channels back to the output.
-        # This keeps transparent inputs from losing their alpha channel.
+        # process RGB, preserve extra channels
         extra_channels = None
         if C > 3:
             extra_channels = images[:, :, :, 3:].detach().cpu()
@@ -1989,7 +1981,7 @@ class VideoTAADLAA:
         
         with torch.inference_mode():
             for i in range(B):
-                # Let ComfyUI cancel long video runs between frames.
+                # allow ComfyUI interruption
                 if mm is not None and hasattr(mm, "throw_exception_if_processing_interrupted"):
                     mm.throw_exception_if_processing_interrupted()
 
