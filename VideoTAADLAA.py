@@ -573,7 +573,6 @@ class VideoTAADLAA:
         return (image + spec_residual * spec_mask * strength).clamp(0.0, 1.0)
 
     def _micro_contrast(self, image, highlight_mask, strength):
-        # local micro-contrast
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -627,7 +626,6 @@ class VideoTAADLAA:
         net,
         strength: float,
     ) -> torch.Tensor:
-        # edge dehalo
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -675,7 +673,6 @@ class VideoTAADLAA:
         net,
         strength: float,
     ) -> torch.Tensor:
-        # chroma fringe cleanup
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
@@ -1524,7 +1521,6 @@ class VideoTAADLAA:
         
         preset_model_weight = self.preset_model_weight.get(preset, 1.00)
         
-        # residual model blend
         model_delta = dlaa_out - rgb
         
         model_delta_value = None
@@ -1546,7 +1542,6 @@ class VideoTAADLAA:
         luma = rgb_luma(dlaa_out)
         highlight_mask = torch.sigmoid((luma - self.highlight_threshold) * self.highlight_slope)
         
-        # protect bright highlights
         highlight_pre_blend = self.highlight_pre_blend * (
             self.detail_highlight_pre_scale if preset == "Detail" else 1.0
         )
