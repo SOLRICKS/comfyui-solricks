@@ -131,7 +131,7 @@ class VideoAdaptiveAA:
 
     @torch.inference_mode()
     def apply_aa(self, images, strength, edge_threshold, blur_radius):
-        if strength <= 0 or blur_radius <= 0:
+        if strength <= 0.0 or blur_radius <= 0:
             return (images,)
 
         frame_count = images.shape[0]
