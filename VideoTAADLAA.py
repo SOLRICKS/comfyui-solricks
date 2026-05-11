@@ -1754,7 +1754,7 @@ class VideoTAADLAA:
     ):
         # main DLAA pipeline
         
-        if dlaa_strength <= 0:
+        if dlaa_strength <= 0.0:
             return rgb, prev_dlaa_output, None
 
         is_detail = preset == "Detail"
