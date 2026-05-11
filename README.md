@@ -46,7 +46,7 @@ Both models keep the original image resolution and are not ESRGAN models.
 
 ## Comparison
 <p align="center">
-  <strong>AdaptiveAA Comparison</strong>
+  <strong>AdaptiveAA Comparison — Before / After</strong>
 </p>
 <table align="center">
   <tr>
@@ -62,7 +62,7 @@ Both models keep the original image resolution and are not ESRGAN models.
 <br>
 
 <p align="center">
-  <strong>TAA + DLAA Comparison</strong>
+  <strong>TAA + DLAA Comparison — Before / After</strong>
 </p>
 <table align="center">
   <tr>
