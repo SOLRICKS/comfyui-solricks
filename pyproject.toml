@@ -11,3 +11,4 @@ Repository = "https://github.com/SOLRICKS/comfyui-solricks"
 [tool.comfy]
 PublisherId = "solricks"
 DisplayName = "comfyui-solricks"
+Icon = "https://raw.githubusercontent.com/SOLRICKS/comfyui-solricks/main/logo.png"
