@@ -1,4 +1,4 @@
-__version__ = "0.2.0"
+__version__ = "0.2.1"
 
 
 NODE_CLASS_MAPPINGS = {}
@@ -30,6 +30,19 @@ try:
 
 except Exception as e:
     print(f"[SOLRICKS] VideoTAADLAA failed to load: {type(e).__name__}: {e}")
+
+
+try:
+    from .VideoDetailRefiner import (
+        NODE_CLASS_MAPPINGS as DETAIL_REFINER_MAPPINGS,
+        NODE_DISPLAY_NAME_MAPPINGS as DETAIL_REFINER_NAMES,
+    )
+
+    NODE_CLASS_MAPPINGS.update(DETAIL_REFINER_MAPPINGS)
+    NODE_DISPLAY_NAME_MAPPINGS.update(DETAIL_REFINER_NAMES)
+
+except Exception as e:
+    print(f"[SOLRICKS] VideoDetailRefiner failed to load: {type(e).__name__}: {e}")
 
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

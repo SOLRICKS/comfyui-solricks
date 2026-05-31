@@ -1,5 +1,5 @@
 # Video TAA + DLAA Inference
-# v0.2.0
+# v0.2.1
 # SOLRICKS
 # AI-assisted
 
