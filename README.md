@@ -8,13 +8,13 @@
 
 > Available in **ComfyUI Manager**. Search for **SOLRICKS**.
 
-Anti-aliasing nodes for ComfyUI image and video workflows. VideoTAADLAA combines temporal anti-aliasing, jittered sampling, and DLAA-inspired refinement for cleaner, more stable edges. VideoAdaptiveAA provides a lightweight edge-focused cleanup pass for aliasing-prone regions.
+Anti-aliasing and detail refinement nodes for ComfyUI image and video workflows. VideoTAADLAA combines temporal anti-aliasing, jittered sampling, and DLAA-inspired refinement for cleaner, more stable edges. VideoDetailRefiner adds a lightweight detail and texture refinement pass for image and video outputs. VideoAdaptiveAA provides a lightweight edge-focused cleanup pass for aliasing-prone regions.
 
 ---
 
 > [!IMPORTANT]
 > **Disclaimer**
-> This node does not use NVIDIA's closed-source SDKs or native DLAA/DLSS binaries. Instead, it is a custom adaptation of Temporal and Spatial Anti-Aliasing techniques commonly found in modern game engines, rebuilt entirely from scratch using PyTorch tensor architecture specifically for ComfyUI video post-processing.
+> This node pack does not use NVIDIA's closed-source SDKs or native DLAA/DLSS binaries. Instead, it is a custom adaptation of Temporal and Spatial Anti-Aliasing techniques commonly found in modern game engines, rebuilt entirely from scratch using PyTorch tensor architecture specifically for ComfyUI video post-processing.
 
 ---
 
@@ -33,6 +33,8 @@ The pack includes two 1x refinement models:
 
 Both models keep the original image resolution and are not ESRGAN models.
 
+> **Note:** DLAATexture.safetensors is a 1x detail refinement model and does not upscale image resolution.
+
 ---
 
 ## Features
@@ -41,6 +43,7 @@ Both models keep the original image resolution and are not ESRGAN models.
 - **Motion-aware cleanup:** Helps reduce ghosting and trailing artifacts in moving scenes.
 - **Edge-preserving detail:** Uses edge detection to clean aliasing without over-blurring fine texture.
 - **Lightweight inference:** Designed for ComfyUI post-processing with modest VRAM usage.
+- **Detail refinement:** Enhances fine texture, hair, fabric, small edges, and micro-detail.
 
 ---
 
@@ -102,6 +105,28 @@ The node uses a simple game-style preset system:
 Start with **Auto**, then adjust based on your content.
 
 For LTX or Wan workflows, run this node separately as the final post-process.
+
+---
+
+### Video Detail Refiner
+
+Use **Video Detail Refiner** as an optional final pass after image or video generation, or after the main **Video Anti-Aliasing (TAA + DLAA)** node.
+
+Recommended starting point:
+
+- Use **Photo** for single images.
+- Use **Video Balanced** for most videos.
+- Use **Video High Detail** for hair, fur, fabric, wires, and fine texture.
+- Use **Soft** for safer, smoother refinement.
+- Use **Performance** for faster previews or lower VRAM usage.
+
+| Preset | Description |
+|---|---|
+| **Photo** | Detail refinement tuned for single images. |
+| **Video Balanced** | Good default for most videos with stable detail enhancement. |
+| **Video High Detail** | Stronger detail and texture refinement for fine edges, hair, fur, fabric, and micro-texture. |
+| **Soft** | Safer refinement with smoother output and stronger protection. |
+| **Performance** | Faster processing with model pass disabled. Useful for previews and lower VRAM setups. |
 
 ---
 
