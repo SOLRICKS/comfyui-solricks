@@ -50,25 +50,15 @@ Both models keep the original image resolution and are not ESRGAN models.
 ---
 
 ## Comparison
-<p align="center">
-  <strong>AdaptiveAA Comparison — Before / After</strong>
-</p>
-<table align="center">
-  <tr>
-	<td align="center"><strong></strong></td>
-	<td align="center"><strong></strong></td>
-  </tr>
-  <tr>
-	<td width="33%"><img src="assets/compare_1.png" width="100%"></td>
-	<td width="33%"><img src="assets/compare_2.png" width="100%"></td>
-  </tr>
-</table>
-
-<br>
 
 <p align="center">
   <strong>TAA + DLAA Comparison — Before / After</strong>
 </p>
+
+https://github.com/user-attachments/assets/9772e56f-6c9f-4dc0-a8c9-03701fb25102
+
+<br>
+
 <table align="center">
   <tr>
 	<td align="center"><strong></strong></td>
