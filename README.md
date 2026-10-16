@@ -4,7 +4,7 @@
   <img src="https://flat.badgen.net/github/release/SOLRICKS/comfyui-solricks?icon=github&label=release&color=orange&cache=3600" alt="Release">
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python" alt="Python 3.10+">
   <a href="https://github.com/SOLRICKS/comfyui-solricks/stargazers">
-    <img src="https://flat.badgen.net/github/stars/SOLRICKS/comfyui-solricks?icon=github&label=stars&color=24292f&cache=3600" alt="GitHub stars">
+    <img src="https://img.shields.io/github/stars/SOLRICKS/comfyui-solricks?style=flat-square&logo=github&color=24292f&label=stars" alt="GitHub stars">
   </a>
 </p>
 
