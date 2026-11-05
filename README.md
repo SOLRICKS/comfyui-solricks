@@ -46,7 +46,7 @@ Upscale an existing H3 video with a learned latent upscaler, then refine detail 
 
 ### Models on Hugging Face
 
-Download the models and example workflows from [SOLRICKS/MiniMax-H3-Upscaler](https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler), part of the [Visual AI Models & Tools](https://huggingface.co/collections/SOLRICKS/visual-ai-models-and-tools) collection.
+Download the models and example workflows from the [Visual AI Models & Tools](https://huggingface.co/collections/SOLRICKS/visual-ai-models-and-tools) collection.
 
 | Model | Download | Place in |
 |---|---|---|
@@ -71,7 +71,7 @@ Required connections: **model**, **vae**, **images**. Optional: **conditioning**
 |---|---|
 | `upscale_model` | Select the installed H3 latent upscaler. |
 | `megapixels` | Set target area; default 2.0. H3 dimensions are aligned to 32 pixels. Choose a target at least as large as the input. |
-| `lora` | Select the refiner LoRA, including the SOLRICKS INT8 repack or upstream BF16 file. |
+| `lora` | Select the refiner LoRA, including the INT8 repack or upstream BF16 file. |
 | `enable temporal chunking` | Allow overlapping time windows to manage longer clips and VRAM use. |
 | `enable spatial tiling` | Allow overlapping spatial tiles for larger frames. |
 
@@ -79,7 +79,7 @@ Refinement defaults are fixed in the code: two Euler steps, seed 42, LoRA streng
 
 The node provides a green progress bar and cancellation checks between processing batches, model calls and sampler steps. An active GPU/VAE call must return before cancellation can be handled. Routine console messages are deduplicated; warnings and errors remain visible.
 
-Temporal chunking and spatial tiling limit per-pass model work. The full source and output IMAGE batches still occupy system RAM. The experimental INT8 refiner has measured per-matrix relative error of 8.24% median and 28.41% maximum; these are numerical errors rather than visual-quality percentages. INT8 storage is approximately half the BF16 file size and is lossy; identical visual quality, faster inference and lower runtime VRAM are not guaranteed.
+Temporal chunking and spatial tiling limit per-pass model work. The full source and output IMAGE batches still occupy system RAM. The INT8 refiner has measured per-matrix relative error of 8.24% median and 28.41% maximum; these are numerical errors rather than visual-quality percentages. INT8 storage is approximately half the BF16 file size and is lossy; identical visual quality, faster inference and lower runtime VRAM are not guaranteed.
 
 ---
 
