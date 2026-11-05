@@ -58,4 +58,17 @@ except Exception as e:
     print(f"[SOLRICKS] VideoCinematicFX failed to load: {type(e).__name__}: {e}")
 
 
+try:
+    from .MiniMaxH3Upscaler import (
+        NODE_CLASS_MAPPINGS as H3_UPSCALER_MAPPINGS,
+        NODE_DISPLAY_NAME_MAPPINGS as H3_UPSCALER_NAMES,
+    )
+
+    NODE_CLASS_MAPPINGS.update(H3_UPSCALER_MAPPINGS)
+    NODE_DISPLAY_NAME_MAPPINGS.update(H3_UPSCALER_NAMES)
+
+except Exception as e:
+    print(f"[SOLRICKS] MiniMaxH3Upscaler failed to load: {type(e).__name__}: {e}")
+
+
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
