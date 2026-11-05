@@ -1,4 +1,4 @@
-# ComfyUI Video Anti-Aliasing Pack & MiniMax H3 Upscaler
+# ComfyUI Video Anti-Aliasing & MiniMax H3 Upscaler
 <p align="center">
   <img src="https://img.shields.io/badge/ComfyUI--Manager-Verified-green?style=flat-square&logo=github" alt="ComfyUI Manager Verified">
   <img src="https://flat.badgen.net/github/release/SOLRICKS/comfyui-solricks?icon=github&label=release&color=orange&cache=3600" alt="Release">
