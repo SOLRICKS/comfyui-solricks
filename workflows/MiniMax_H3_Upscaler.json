@@ -1,0 +1,402 @@
+{
+  "id": "solricks-minimax-h3-upscaler",
+  "revision": 0,
+  "last_node_id": 6,
+  "last_link_id": 9,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadVideo",
+      "pos": [
+        0,
+        0
+      ],
+      "size": [
+        320,
+        380
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "title": "Choose source video",
+      "properties": {
+        "Node name for S&R": "LoadVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "input.mp4"
+      ]
+    },
+    {
+      "id": 2,
+      "type": "GetVideoComponents",
+      "pos": [
+        380,
+        0
+      ],
+      "size": [
+        280,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            4
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            5
+          ]
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "links": [
+            6,
+            9
+          ]
+        }
+      ],
+      "title": "GetVideoComponents",
+      "properties": {
+        "Node name for S&R": "GetVideoComponents",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 3,
+      "type": "UNETLoader",
+      "pos": [
+        380,
+        230
+      ],
+      "size": [
+        390,
+        82
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            2
+          ]
+        }
+      ],
+      "title": "H3 model - no generation LoRAs",
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 4,
+      "type": "VAELoader",
+      "pos": [
+        380,
+        370
+      ],
+      "size": [
+        390,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "title": "H3 video VAE",
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "minimax_h3_video_vae_int8_convrot.safetensors"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "SolricksMiniMaxH3Upscaler",
+      "pos": [
+        840,
+        0
+      ],
+      "size": [
+        520,
+        370
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 3
+        },
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 5,
+          "shape": 7
+        },
+        {
+          "name": "fps",
+          "type": "FLOAT",
+          "link": 6,
+          "shape": 7
+        },
+        {
+          "name": "audio_vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "links": [
+            8
+          ]
+        }
+      ],
+      "title": "MiniMax H3 Upscaler",
+      "properties": {
+        "Node name for S&R": "SolricksMiniMaxH3Upscaler",
+        "cnr_id": "comfyui-solricks"
+      },
+      "widgets_values": [
+        "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+        2,
+        "h3_upscale_refiner_int8.safetensors",
+        true,
+        true
+      ]
+    },
+    {
+      "id": 6,
+      "type": "VHS_VideoCombine",
+      "pos": [
+        1420,
+        0
+      ],
+      "size": [
+        450,
+        450
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": 8,
+          "shape": 7
+        },
+        {
+          "name": "meta_batch",
+          "type": "VHS_BatchManager",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "frame_rate",
+          "type": "FLOAT",
+          "link": 9,
+          "widget": {
+            "name": "frame_rate"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "Filenames",
+          "type": "VHS_FILENAMES",
+          "links": null
+        }
+      ],
+      "title": "Save H3 upscale - source FPS and audio",
+      "properties": {
+        "Node name for S&R": "VHS_VideoCombine",
+        "cnr_id": "comfyui-videohelpersuite"
+      },
+      "widgets_values": {
+        "frame_rate": 24,
+        "loop_count": 0,
+        "filename_prefix": "SOLRICKS/H3_Upscaled",
+        "format": "video/h264-mp4",
+        "pix_fmt": "yuv420p",
+        "crf": 16,
+        "save_metadata": true,
+        "trim_to_audio": false,
+        "pingpong": false,
+        "save_output": true
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "VIDEO"
+    ],
+    [
+      2,
+      3,
+      0,
+      5,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      4,
+      0,
+      5,
+      1,
+      "VAE"
+    ],
+    [
+      4,
+      2,
+      0,
+      5,
+      2,
+      "IMAGE"
+    ],
+    [
+      5,
+      2,
+      1,
+      5,
+      4,
+      "AUDIO"
+    ],
+    [
+      6,
+      2,
+      2,
+      5,
+      5,
+      "FLOAT"
+    ],
+    [
+      7,
+      5,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      5,
+      1,
+      6,
+      1,
+      "AUDIO"
+    ],
+    [
+      9,
+      2,
+      2,
+      6,
+      4,
+      "FLOAT"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.7,
+      "offset": [
+        60,
+        80
+      ]
+    }
+  },
+  "version": 0.4
+}
