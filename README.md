@@ -85,13 +85,6 @@ Temporal chunking and spatial tiling limit per-pass model work. The full source 
 
 ---
 
-## Anti-Aliasing Preview
-| TAA + DLAA Anti-Aliasing | Adaptive Anti-Aliasing |
-| :---: | :---: |
-| <img src="https://github.com/SOLRICKS/comfyui-solricks/blob/main/assets/video_taadlaa.png" width="100%"> | <img src="https://github.com/SOLRICKS/comfyui-solricks/blob/main/assets/video_adaptive_aa.png" width="100%"> |
-
----
-
 ### Anti-Aliasing Models
 The pack includes two 1x refinement models:
 
