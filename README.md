@@ -135,7 +135,7 @@ https://github.com/user-attachments/assets/9772e56f-6c9f-4dc0-a8c9-03701fb25102
 
 ---
 
-## 🚀 How to use
+## How to use
 Recommended starting point:
 
 - Use **Auto** for general footage.
