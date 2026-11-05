@@ -1,0 +1,86 @@
+{
+  "1": {
+    "class_type": "LoadVideo",
+    "inputs": {
+      "file": "input.mp4"
+    }
+  },
+  "2": {
+    "class_type": "GetVideoComponents",
+    "inputs": {
+      "video": [
+        "1",
+        0
+      ]
+    }
+  },
+  "3": {
+    "class_type": "UNETLoader",
+    "inputs": {
+      "unet_name": "minimax_h3_fl2va_pruned_int8_convrot.safetensors",
+      "weight_dtype": "default"
+    }
+  },
+  "4": {
+    "class_type": "VAELoader",
+    "inputs": {
+      "vae_name": "minimax_h3_video_vae_int8_convrot.safetensors"
+    }
+  },
+  "5": {
+    "class_type": "SolricksMiniMaxH3Upscaler",
+    "inputs": {
+      "model": [
+        "3",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ],
+      "images": [
+        "2",
+        0
+      ],
+      "audio": [
+        "2",
+        1
+      ],
+      "fps": [
+        "2",
+        2
+      ],
+      "upscale_model": "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors",
+      "megapixels": 2,
+      "lora": "h3_upscale_refiner_int8.safetensors",
+      "enable temporal chunking": true,
+      "enable spatial tiling": true
+    }
+  },
+  "6": {
+    "class_type": "VHS_VideoCombine",
+    "inputs": {
+      "frame_rate": [
+        "2",
+        2
+      ],
+      "loop_count": 0,
+      "filename_prefix": "SOLRICKS/H3_Upscaled",
+      "format": "video/h264-mp4",
+      "pix_fmt": "yuv420p",
+      "crf": 16,
+      "save_metadata": true,
+      "trim_to_audio": false,
+      "pingpong": false,
+      "save_output": true,
+      "images": [
+        "5",
+        0
+      ],
+      "audio": [
+        "5",
+        1
+      ]
+    }
+  }
+}
