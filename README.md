@@ -50,7 +50,7 @@ Download the models and example workflows from the [Visual AI Models & Tools](ht
 
 | Model | Download | Place in |
 |---|---|---|
-| Experimental INT8 refiner LoRA | [h3_upscale_refiner_int8.safetensors](https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/h3_upscale_refiner_int8.safetensors?download=true) | `ComfyUI/models/loras/` |
+| INT8 refiner LoRA | [h3_upscale_refiner_int8.safetensors](https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/h3_upscale_refiner_int8.safetensors?download=true) | `ComfyUI/models/loras/` |
 | FP16 latent upscaler | [minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors](https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors?download=true) | `ComfyUI/models/latent_upscale_models/` |
 
 You also need a compatible **MiniMax H3 FL2VA diffusion model** and **H3 video VAE**, such as the files in [Kijai/MiniMax-H3-experimental](https://huggingface.co/Kijai/MiniMax-H3-experimental). Put these in `models/diffusion_models/` and `models/vae/` respectively. Connect a model without generation/Turbo/style LoRAs: this node applies the refiner LoRA itself.
