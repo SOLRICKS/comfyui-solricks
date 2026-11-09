@@ -33,7 +33,7 @@ Upscale an existing H3 video with a learned latent upscaler, then refine detail 
   <tbody>
     <tr>
       <td width="50%"><video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/5177d194-77af-4bbd-99d4-5f116a9997e7"></video></td>
-      <td width="50%"><video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/2ddd1845-8f32-461d-9363-934b31840b66"></video></td>
+      <td width="50%"><video controls playsinline preload="metadata" width="100%" src="https://github.com/user-attachments/assets/2f3b9e7f-cfec-4792-b04e-f4725c955e39"></video></td>
     </tr>
     <tr>
       <td align="center"><a href="https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/Minimax_H3_I2V.mp4">Open original video</a></td>
