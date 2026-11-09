@@ -37,7 +37,7 @@ Upscale an existing H3 video with a learned latent upscaler, then refine detail 
     </tr>
     <tr>
       <td align="center"><a href="https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/Minimax_H3_I2V.mp4">Open original video</a></td>
-      <td align="center"><a href="https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/Minimax-H3-Upscaler.mp4">Open upscaled video</a></td>
+      <td align="center"><a href="https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler/resolve/main/Minimax_H3_I2V_Upscaler.mp4">Open upscaled video</a></td>
     </tr>
   </tbody>
 </table>
