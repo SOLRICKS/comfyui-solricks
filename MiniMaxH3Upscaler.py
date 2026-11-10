@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 SOLRICKS
-"""MiniMax H3 Upscaler by SOLRICKS, version 0.2.5.
+"""MiniMax H3 Upscaler by SOLRICKS, version 0.2.6.
 
 This is a new implementation of the SOLRICKS node. It does not bundle code
 from another custom-node project. ComfyUI's own H3 loader, latent upscaler,
@@ -29,6 +29,12 @@ Implementation
 --------------
 Frames are fitted to H3's 32-pixel grid, padded to its native time layout,
 encoded, enlarged through core, refined through core, decoded, and trimmed.
+With source detail protection enabled, the last step compares each decoded
+frame with the corresponding input in RGB. A float Lanczos down/up pass
+estimates the part of the H3 change already resolved on the input grid.
+Subtracting it keeps the source texture while retaining finer H3 detail.
+This operates on one frame at a time. An exact size match passes through
+the source RGB directly when protection is enabled.
 Refinement uses a seeded clip-wide noise field and normalized overlap-add.
 "stepped" updates overlapping time/space windows together at every sigma;
 "crossfade" refines time windows separately, with joint spatial steps inside
@@ -48,8 +54,10 @@ before transfer/casting to avoid extra full-resolution temporary frames.
 Controls
 --------
 Choose the upscaler model and refiner LoRA from their selection fields.
-The other widgets are megapixels, enable temporal chunking and enable
-spatial tiling. Internal refinement defaults are listed below the imports.
+The other widgets are megapixels, enable temporal chunking, enable spatial
+tiling and preserve source detail. The last control defaults to on. Turn
+it off to use the original H3 output, including same-size redraws.
+Internal refinement defaults are listed below the imports.
 Sparse attention is preferred automatically. Missing/unsupported sparse
 support falls back to a clean dense model, including at sampling time.
 OOM still follows the smaller-window retry path; unrelated errors propagate.
@@ -89,10 +97,12 @@ import os
 import threading
 import time
 
+import numpy as np
+from PIL import Image
 import torch
 import torch.nn.functional as F
 
-__version__ = "0.2.5"
+__version__ = "0.2.6"
 _MODEL_FOLDER = "latent_upscale_models"
 _UPSCALE_FILE = "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors"
 _LORA_FILE = "h3_upscale_refiner_bf16.safetensors"
@@ -702,10 +712,39 @@ class _Refinement:
         return accum.div_(norm), len(intervals), jobs
 
 
-def _decode_frames(runtime, vae, video, count):
+def _resize_float_plane(plane, size):
+    # Pillow mode F retains signed residuals and avoids an 8-bit round trip.
+    return np.asarray(Image.fromarray(plane).resize(size, Image.Resampling.LANCZOS))
+
+
+def _preserve_source_frame(generated, source):
+    """Remove the part of the H3 change that survives a round trip to the source grid."""
+    source_size = (source.shape[1], source.shape[0])
+    target_size = (generated.shape[1], generated.shape[0])
+    for channel in range(3):
+        target = generated[..., channel]
+        change = target - _resize_float_plane(source[..., channel], target_size)
+        # For delta = H3 - baseline, keep delta - up(down(delta)).
+        # Filtering delta also leaves an already correct baseline untouched.
+        source_change = _resize_float_plane(change, source_size)
+        del change
+        target -= _resize_float_plane(source_change, target_size)
+    np.clip(generated, 0.0, 1.0, out=generated)
+
+
+def _output_audio(audio, frame_count, fps):
+    if audio is not None:
+        return audio
+    sample_rate = 44100
+    return {"waveform": torch.zeros(1, 2, round(frame_count / fps * sample_rate),
+                                    dtype=torch.float32, device="cpu"),
+            "sample_rate": sample_rate}
+
+
+def _decode_frames(runtime, vae, video, count, source_images=None):
     runtime.progress.update(90)
     height, width = video.shape[3] * 16, video.shape[4] * 16
-    output = torch.empty(count, height, width, 3, dtype=torch.float32)
+    output = torch.empty(count, height, width, 3, dtype=torch.float32, device="cpu")
     written = 0
     # Chunk boundaries are complete 17-frame / 5-token groups. Neighbouring
     # groups are decoded as context, then discarded before writing the output.
@@ -729,6 +768,12 @@ def _decode_frames(runtime, vae, video, count):
         del frames
         output[written:written + keep].copy_(kept)
         del kept
+        if source_images is not None:
+            for index in range(written, written + keep):
+                runtime.check_cancel()
+                source_frame = source_images[index, ..., :3].detach().to(device="cpu", dtype=torch.float32)
+                _preserve_source_frame(output[index].numpy(), source_frame.numpy())
+                runtime.progress.section(90, 99, index + 1, count)
         written += keep
         runtime.progress.section(90, 99, written, count)
     if written != count:
@@ -762,6 +807,9 @@ class SolricksMiniMaxH3Upscaler:
                 "audio": ("AUDIO", {"tooltip": "Original soundtrack; returned unchanged."}),
                 "fps": ("FLOAT", {"forceInput": True, "tooltip": "Source frame rate; defaults to 24."}),
                 "audio_vae": ("VAE", {"tooltip": "H3 audio VAE for soundtrack conditioning."}),
+                "preserve source detail": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "Retain source texture and tone, and use finer detail from H3. At matching dimensions this returns the source RGB directly."}),
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
@@ -770,7 +818,7 @@ class SolricksMiniMaxH3Upscaler:
     RETURN_NAMES = ("images", "audio")
     FUNCTION = "run"
     CATEGORY = "CustomPostProcess"
-    DESCRIPTION = "MiniMax H3 Upscaler by SOLRICKS: latent enlargement and windowed detail refinement using existing model files."
+    DESCRIPTION = "MiniMax H3 latent enlargement and windowed refinement with optional source texture protection."
 
     @torch.inference_mode()
     def run(self, model, vae, images, upscale_model, megapixels, lora,
@@ -786,14 +834,14 @@ class SolricksMiniMaxH3Upscaler:
                 chunk_join=_CHUNK_JOIN, chunking=chunking, tiling=tiling,
                 redraw_start=_REDRAW_START, redraw_steps=str(_REDRAW_STEPS),
                 conditioning=conditioning, audio=audio, fps=fps, audio_vae=audio_vae,
-                node_id=unique_id)
+                node_id=unique_id, preserve_source_detail=bool(controls.get("preserve source detail", True)))
 
     @torch.inference_mode()
     def _execute(self, model, vae, images, upscale_model, megapixels, denoise, lora,
             tile_tokens, sampler_name, redraw_seed=42, attention="sparse",
             chunk_join="stepped", chunking=True, tiling=True, redraw_start=0.6,
             redraw_steps="2", audio=None, audio_vae=None, conditioning=None, fps=None,
-            node_id=None):
+            node_id=None, preserve_source_detail=False):
         import folder_paths
         import comfy.samplers
 
@@ -812,7 +860,19 @@ class SolricksMiniMaxH3Upscaler:
         steps = int(str(redraw_steps).split()[0])
         if steps not in (2, 3) or int(tile_tokens) < 0:
             raise ValueError("Choose two or three redraw steps and a non-negative tile budget.")
-        canvas, target = _canvas(int(images.shape[2]), int(images.shape[1]), megapixels)
+        input_size = (int(images.shape[2]), int(images.shape[1]))
+        canvas, target = _canvas(*input_size, megapixels)
+        frame_count = len(images)
+        if preserve_source_detail and input_size == target:
+            import comfy.model_management as management
+
+            progress = _NodeProgress(management.throw_exception_if_processing_interrupted, node_id)
+            result = images[..., :3].detach().to(device="cpu", dtype=torch.float32)
+            soundtrack = _output_audio(audio, frame_count, source_fps)
+            progress.update(100)
+            print(f"{_LOG} Source detail: returning {frame_count} original RGB frames at "
+                  f"{target[0]}x{target[1]}.", flush=True)
+            return result, soundtrack
         _model_names()
         if canvas != target:
             folder_paths.get_full_path_or_raise(_MODEL_FOLDER, upscale_model)
@@ -823,10 +883,11 @@ class SolricksMiniMaxH3Upscaler:
         except (ImportError, AttributeError) as error:
             raise RuntimeError("Update ComfyUI: this SOLRICKS node requires the built-in H3 latent upscaler.") from error
         started = time.perf_counter()
-        frame_count = len(images)
         padded, latent_steps, audio_steps = runtime.clock(frame_count)
+        protection = "on" if preserve_source_detail else "off"
         print(f"{_LOG} Starting: {frame_count} frames, "
-              f"{images.shape[2]}x{images.shape[1]} -> {target[0]}x{target[1]}.", flush=True)
+              f"{images.shape[2]}x{images.shape[1]} -> {target[0]}x{target[1]}, "
+              f"source detail={protection}.", flush=True)
         try:
             runtime.check_cancel()
             fitted = _fit_input(images, canvas, padded, runtime)
@@ -889,10 +950,9 @@ class SolricksMiniMaxH3Upscaler:
                     del refiner, refined_model, dense_model, audio_z
                     runtime.release()
             runtime.check_cancel()
-            result = _decode_frames(runtime, vae, enlarged, frame_count)
-            if audio is None:
-                audio = {"waveform": torch.zeros(1, 2, round(frame_count / source_fps * 44100)),
-                         "sample_rate": 44100}
+            result = _decode_frames(runtime, vae, enlarged, frame_count,
+                                    source_images=images if preserve_source_detail else None)
+            audio = _output_audio(audio, frame_count, source_fps)
             runtime.progress.update(100)
             print(f"{_LOG} Completed: {frame_count} frames, {target[0]}x{target[1]}, "
                   f"{time.perf_counter() - started:.1f}s.", flush=True)
