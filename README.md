@@ -1,4 +1,4 @@
-# ComfyUI Video Anti-Aliasing & MiniMax H3 Upscaler
+# SOLRICKS — ComfyUI Video & AI Optimization Tools
 <p align="center">
   <img src="https://img.shields.io/badge/ComfyUI--Manager-Verified-green?style=flat-square&logo=github" alt="ComfyUI Manager Verified">
   <img src="https://flat.badgen.net/github/release/SOLRICKS/comfyui-solricks?icon=github&label=release&color=orange&cache=3600" alt="Release">
@@ -10,7 +10,7 @@
 
 > Available in **ComfyUI Manager**. Search for **SOLRICKS**.
 
-Anti-aliasing, detail refinement, cinematic effects, and MiniMax H3 upscaling for ComfyUI image and video workflows. VideoTAADLAA combines temporal anti-aliasing, jittered sampling, and DLAA-inspired refinement for cleaner, more stable edges. VideoDetailRefiner adds a lightweight detail and texture refinement pass for image and video outputs. VideoAdaptiveAA provides a lightweight edge-focused cleanup pass for aliasing-prone regions.
+Anti-aliasing, detail refinement, cinematic effects, and MiniMax H3 upscaling for ComfyUI image and video workflows. VideoTAADLAA combines temporal anti-aliasing, jittered sampling, and DLAA-inspired refinement for cleaner, more stable edges. VideoDetailRefiner adds a lightweight detail and texture refinement pass for image and video outputs.
 
 ---
 
@@ -80,6 +80,37 @@ Refinement defaults are fixed in the code: two Euler steps, seed 42, LoRA streng
 The node provides a green progress bar and cancellation checks between processing batches, model calls and sampler steps. An active GPU/VAE call must return before cancellation can be handled. Routine console messages are deduplicated; warnings and errors remain visible.
 
 Temporal chunking and spatial tiling limit per-pass model work. The full source and output IMAGE batches still occupy system RAM. The INT8 refiner has measured per-matrix relative error of 8.24% median and 28.41% maximum; these are numerical errors rather than visual-quality percentages. INT8 storage is approximately half the BF16 file size and is lossy; identical visual quality, faster inference and lower runtime VRAM are not guaranteed.
+
+---
+
+## GB10-Attn
+
+**GB10-Attn** is a lightweight ComfyUI attention optimization node designed for NVIDIA GB10 Grace Blackwell systems, including Dell Pro Max workstations powered by the GB10 Superchip.
+
+It integrates with ComfyUI's native Sol-Attn sparse attention backend to reduce attention computation overhead in compatible AI image and video generation models.
+
+### Features
+
+- **Grace Blackwell optimization** — Designed for NVIDIA GB10 GPUs (SM121).
+- **Native sparse attention** — Uses ComfyUI's existing optimized attention backend.
+- **Performance profiles** — Quality, Balanced, Speed, and Dense Reference.
+- **Automatic GPU detection** — Identifies compatible hardware and supported attention backends.
+- **Safe fallback** — Preserves the original model when optimization is unavailable during setup.
+- **General model support** — Designed for compatible ComfyUI transformer architectures, including MiniMax H3.
+
+### Usage
+
+Insert GB10-Attn into the MODEL connection before sampling:
+
+`Load Diffusion Model → GB10-Attn → LoRA / Sampler`
+
+**Recommended configuration:** Balanced profile, GB10 only (SM121), Strict disabled.
+
+Avoid combining GB10-Attn with other attention replacement patches on the same model.
+
+**Compatibility:** Requires a recent ComfyUI version with native Sol-Attn support and a compatible CUDA environment.
+
+**Development status:** Experimental. Performance improvements depend on the model, sequence length, and hardware. GB10-specific benchmarks and visual quality validation are still pending.
 
 ---
 
