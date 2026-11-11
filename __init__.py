@@ -6,19 +6,6 @@ NODE_DISPLAY_NAME_MAPPINGS = {}
 
 
 try:
-    from .VideoAdaptiveAA import (
-        NODE_CLASS_MAPPINGS as AA_MAPPINGS,
-        NODE_DISPLAY_NAME_MAPPINGS as AA_NAMES,
-    )
-
-    NODE_CLASS_MAPPINGS.update(AA_MAPPINGS)
-    NODE_DISPLAY_NAME_MAPPINGS.update(AA_NAMES)
-
-except Exception as e:
-    print(f"[SOLRICKS] VideoAdaptiveAA failed to load, skipped: {type(e).__name__}: {e}")
-
-
-try:
     from .VideoTAADLAA import (
         NODE_CLASS_MAPPINGS as TAA_MAPPINGS,
         NODE_DISPLAY_NAME_MAPPINGS as TAA_NAMES,
@@ -69,6 +56,19 @@ try:
 
 except Exception as e:
     print(f"[SOLRICKS] MiniMaxH3Upscaler failed to load: {type(e).__name__}: {e}")
+
+
+try:
+    from .GB10_Attn import (
+        NODE_CLASS_MAPPINGS as GB10_MAPPINGS,
+        NODE_DISPLAY_NAME_MAPPINGS as GB10_NAMES,
+    )
+
+    NODE_CLASS_MAPPINGS.update(GB10_MAPPINGS)
+    NODE_DISPLAY_NAME_MAPPINGS.update(GB10_NAMES)
+
+except Exception as e:
+    print(f"[SOLRICKS] GB10-Attn failed to load: {type(e).__name__}: {e}")
 
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
