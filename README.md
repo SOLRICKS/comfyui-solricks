@@ -85,32 +85,30 @@ Temporal chunking and spatial tiling limit per-pass model work. The full source 
 
 ## GB10-Attn
 
-**GB10-Attn** is a lightweight ComfyUI attention optimization node designed for NVIDIA GB10 Grace Blackwell systems, including Dell Pro Max workstations powered by the GB10 Superchip.
+Lightweight attention optimization for NVIDIA GB10 Grace Blackwell systems, using ComfyUI's native Sol-Attn sparse attention backend.
 
-It integrates with ComfyUI's native Sol-Attn sparse attention backend to reduce attention computation overhead in compatible AI image and video generation models.
+![NVIDIA GB10](https://img.shields.io/badge/NVIDIA_GB10-SM121-76B900)
+![Status](https://img.shields.io/badge/Status-Experimental-orange)
 
 ### Features
 
-- **Grace Blackwell optimization** — Designed for NVIDIA GB10 GPUs (SM121).
-- **Native sparse attention** — Uses ComfyUI's existing optimized attention backend.
+- **Native Sol-Attn** — Integrates with ComfyUI's optimized sparse attention backend.
 - **Performance profiles** — Quality, Balanced, Speed, and Dense Reference.
-- **Automatic GPU detection** — Identifies compatible hardware and supported attention backends.
-- **Safe fallback** — Preserves the original model when optimization is unavailable during setup.
-- **General model support** — Designed for compatible ComfyUI transformer architectures, including MiniMax H3.
+- **Automatic GPU detection** — Identifies compatible hardware and attention backends.
+- **Safe fallback** — Preserves the original model when optimization is unavailable.
+- **Model compatibility** — Supports compatible ComfyUI transformer architectures, including MiniMax H3.
 
 ### Usage
 
-Insert GB10-Attn into the MODEL connection before sampling:
-
 `Load Diffusion Model → GB10-Attn → LoRA / Sampler`
 
-**Recommended configuration:** Balanced profile, GB10 only (SM121), Strict disabled.
-
-Avoid combining GB10-Attn with other attention replacement patches on the same model.
+**Recommended:** Balanced profile · GB10 (SM121) · Strict disabled.
 
 **Compatibility:** Requires a recent ComfyUI version with native Sol-Attn support and a compatible CUDA environment.
 
-**Development status:** Experimental. Performance improvements depend on the model, sequence length, and hardware. GB10-specific benchmarks and visual quality validation are still pending.
+> **Note:** Avoid combining GB10-Attn with other attention replacement patches on the same model.
+
+> **Experimental:** GB10-specific performance benchmarks and visual quality validation are pending.
 
 ---
 
