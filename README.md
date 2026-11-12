@@ -88,7 +88,7 @@ Temporal chunking and spatial tiling limit per-pass model work. The full source 
 Lightweight attention optimization for NVIDIA GB10 Grace Blackwell systems, using ComfyUI's native Sol-Attn sparse attention backend.
 
 ![NVIDIA GB10](https://img.shields.io/badge/NVIDIA_GB10-SM121-76B900)
-![Status](https://img.shields.io/badge/Status-Experimental-orange)
+![Status](https://img.shields.io/badge/Status-Beta-blue)
 
 ### Features
 
