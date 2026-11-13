@@ -1,7 +1,7 @@
 # SOLRICKS — ComfyUI Video & AI Optimization Tools
 <p align="center">
   <img src="https://img.shields.io/badge/ComfyUI--Manager-Verified-green?style=flat-square&logo=github" alt="ComfyUI Manager Verified">
-  <img src="https://flat.badgen.net/github/release/SOLRICKS/comfyui-solricks?icon=github&label=release&color=orange&cache=3600" alt="Release">
+  <img src="https://img.shields.io/badge/release-Optimization%20Pack%200.2.1-orange?style=flat-square&logo=github" alt="Optimization Pack 0.2.1">
   <img src="https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square&logo=python" alt="Python 3.10+">
   <a href="https://github.com/SOLRICKS/comfyui-solricks/stargazers">
     <img src="https://img.shields.io/github/stars/SOLRICKS/comfyui-solricks?style=flat-square&logo=github&color=24292f&label=stars" alt="GitHub stars">
