@@ -1,7 +1,7 @@
 [project]
 name = "comfyui-solricks"
 description = "ComfyUI video anti-aliasing, detail refinement, cinematic effects, and MiniMax H3 upscaling"
-version = "0.2.1"
+version = "0.2.2"
 license = { file = "LICENSE" }
 dependencies = []
 

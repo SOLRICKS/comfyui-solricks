@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2026 SOLRICKS
-"""MiniMax H3 Upscaler by SOLRICKS, version 0.2.6.
+"""MiniMax H3 Upscaler by SOLRICKS, version 0.2.7.
 
 This is a new implementation of the SOLRICKS node. It does not bundle code
 from another custom-node project. ComfyUI's own H3 loader, latent upscaler,
@@ -50,6 +50,10 @@ window geometry and blend arithmetic unchanged. Sampler/preview setup is
 reused during a run; unused x0 previews are not retained. Host-side zero
 noise and blend workspaces are reused, and decoder context is cropped
 before transfer/casting to avoid extra full-resolution temporary frames.
+Normal stage transitions leave model residency to ComfyUI's memory manager;
+forced model unloading/cache cleanup is reserved for recovery and failed runs.
+Each node instance retains one refiner LoRA loader, invalidated when the file's
+path, modification time or size changes. It does not cache a diffusion model.
 
 Controls
 --------
@@ -102,7 +106,7 @@ from PIL import Image
 import torch
 import torch.nn.functional as F
 
-__version__ = "0.2.6"
+__version__ = "0.2.7"
 _MODEL_FOLDER = "latent_upscale_models"
 _UPSCALE_FILE = "minimax_h3_latent_upscaler_3d_conv_v1_fp16.safetensors"
 _LORA_FILE = "h3_upscale_refiner_bf16.safetensors"
@@ -385,10 +389,12 @@ class _Runtime:
         self._mask_values = None
         self._zero_video = None
 
-    def release(self):
+    def release(self, *, unload=False):
+        """Drop stage references; force global unloading only for recovery."""
         self._clear_sampler()
-        self.mm.unload_all_models()
-        self.mm.soft_empty_cache()
+        if unload:
+            self.mm.unload_all_models()
+            self.mm.soft_empty_cache()
 
     def check_cancel(self):
         self.mm.throw_exception_if_processing_interrupted()
@@ -441,6 +447,7 @@ class _Runtime:
             if not _out_of_memory(error) or not allow_chunks:
                 raise
             self.check_cancel()
+            self.release(unload=True)
             self.notice("upscale_memory", "VRAM limit reached; splitting latent upscale into time sections.")
         finally:
             self.release()
@@ -463,6 +470,7 @@ class _Runtime:
             except Exception as error:
                 if not _out_of_memory(error):
                     raise
+                self.release(unload=True)
             finally:
                 self.release()
         raise RuntimeError("H3 latent upscale could not fit even a short section in memory.")
@@ -548,14 +556,49 @@ class _Runtime:
         return host_video.float()
 
 
-def _prepare_model(model, filename, strength, attention, runtime=None):
+class _LoraCache:
+    """One core loader per node; retain only its last raw LoRA, never a MODEL."""
+
+    def __init__(self):
+        self._loader = None
+        self._file_key = None
+        self._lock = threading.Lock()
+
+    def apply(self, model, filename, strength):
+        if strength == 0:
+            return model
+        import folder_paths
+        import nodes
+
+        path = folder_paths.get_full_path_or_raise("loras", filename)
+        with self._lock:
+            stat = os.stat(path)
+            file_key = (os.path.normcase(os.path.realpath(path)),
+                        stat.st_mtime_ns, stat.st_size)
+            if self._loader is None or file_key != self._file_key:
+                self._loader = nodes.LoraLoaderModelOnly()
+                self._file_key = None
+            try:
+                result = self._loader.load_lora_model_only(model, filename, strength)
+            except BaseException:
+                self._loader = None
+                self._file_key = None
+                raise
+            self._file_key = file_key
+            return _first(result)
+
+
+def _prepare_model(model, filename, strength, attention, runtime=None, lora_cache=None):
     import nodes
 
     if runtime is not None:
         runtime.check_cancel()
     refined = model.clone()
     if filename and filename != "None":
-        refined = nodes.LoraLoaderModelOnly().load_lora_model_only(refined, filename, strength)[0]
+        if lora_cache is None:
+            refined = nodes.LoraLoaderModelOnly().load_lora_model_only(refined, filename, strength)[0]
+        else:
+            refined = lora_cache.apply(refined, filename, strength)
     if runtime is not None:
         runtime.check_cancel()
     # Use optional registered patches through their public node API when present.
@@ -782,6 +825,9 @@ def _decode_frames(runtime, vae, video, count, source_images=None):
 
 
 class SolricksMiniMaxH3Upscaler:
+    def __init__(self):
+        self._lora_cache = _LoraCache()
+
     @classmethod
     def INPUT_TYPES(cls):
         import folder_paths
@@ -888,6 +934,7 @@ class SolricksMiniMaxH3Upscaler:
         print(f"{_LOG} Starting: {frame_count} frames, "
               f"{images.shape[2]}x{images.shape[1]} -> {target[0]}x{target[1]}, "
               f"source detail={protection}.", flush=True)
+        succeeded = False
         try:
             runtime.check_cancel()
             fitted = _fit_input(images, canvas, padded, runtime)
@@ -904,10 +951,10 @@ class SolricksMiniMaxH3Upscaler:
             enlarged, _ = runtime.enlarge(encoded, upscale_model, target, bool(chunking))
             del encoded
             if float(denoise) > 0:
-                runtime.release()
                 runtime.check_cancel()
                 refined_model, attention_note, dense_model = _prepare_model(
-                    model, lora, float(denoise), attention, runtime=runtime)
+                    model, lora, float(denoise), attention, runtime=runtime,
+                    lora_cache=self._lora_cache)
                 runtime.progress.update(45)
                 prompt = _prompt_only(conditioning)
                 sampler = comfy.samplers.sampler_object(sampler_name)
@@ -932,7 +979,7 @@ class SolricksMiniMaxH3Upscaler:
                             if attention_note == "sparse" and _sparse_unavailable(error):
                                 runtime.notice("sparse", "Sparse attention unavailable; restarting with dense.")
                                 logging.getLogger(__name__).debug("Sparse sampling failed: %s", error)
-                                runtime.release()
+                                runtime.release(unload=True)
                                 refined_model = dense_model
                                 attention_note = "dense (sparse unavailable)"
                                 refiner = make_refiner()
@@ -945,7 +992,7 @@ class SolricksMiniMaxH3Upscaler:
                             budget = smaller
                             oom_retries += 1
                             runtime.notice("refine_memory", "VRAM limit reached; retrying with smaller windows.")
-                            runtime.release()
+                            runtime.release(unload=True)
                 finally:
                     del refiner, refined_model, dense_model, audio_z
                     runtime.release()
@@ -956,12 +1003,13 @@ class SolricksMiniMaxH3Upscaler:
             runtime.progress.update(100)
             print(f"{_LOG} Completed: {frame_count} frames, {target[0]}x{target[1]}, "
                   f"{time.perf_counter() - started:.1f}s.", flush=True)
+            succeeded = True
             return result, audio
         except runtime.mm.InterruptProcessingException:
             print(f"{_LOG} Cancelled.", flush=True)
             raise
         finally:
-            runtime.release()
+            runtime.release(unload=not succeeded)
 
 
 NODE_CLASS_MAPPINGS = {
