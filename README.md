@@ -1,4 +1,4 @@
-# SOLRICKS — ComfyUI Video & AI Optimization Tools
+# SOLRICKS — ComfyUI Video & Optimization Tools
 <p align="center">
   <img src="https://img.shields.io/badge/ComfyUI--Manager-Verified-green?style=flat-square&logo=github" alt="ComfyUI Manager Verified">
   <img src="https://img.shields.io/badge/release-Optimization%20Pack%200.2.2-orange?style=flat-square&logo=github" alt="Optimization Pack 0.2.2">
@@ -58,7 +58,6 @@ You also need a compatible **MiniMax H3 FL2VA diffusion model** and **H3 video V
 ### Workflow downloads
 
 - [MiniMax H3 Upscaler — ComfyUI workflow](workflows/MiniMax_H3_Upscaler.json)
-- [MiniMax H3 Upscaler — API prompt](workflows/MiniMax_H3_Upscaler_API.json)
 - [Hugging Face models and workflows](https://huggingface.co/SOLRICKS/MiniMax-H3-Upscaler)
 
 The GUI workflow uses core **Load Video / Get Video Components** and **VideoHelperSuite Video Combine**. Install [VideoHelperSuite](https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite) for the example's MP4 export. Select your input video and the installed model filenames after loading the workflow.
