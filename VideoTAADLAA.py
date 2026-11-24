@@ -455,23 +455,25 @@ class VideoTAADLAA:
             align_corners=False,
         )
 
-    def _luma_edge(self, image, net):
+    def _luma_edge(self, image, net, return_grad=False):
         # luma + Sobel edge map
         luma = rgb_luma(image)
         sx = F.conv2d(luma, net.sobel_x, padding=1)
         sy = F.conv2d(luma, net.sobel_y, padding=1)
         edge = torch.sqrt(sx * sx + sy * sy + 1e-6)
 
+        if return_grad:
+            return luma, edge, sx, sy
         return luma, edge
 
-    def _edge_aa(self, image, thr, blur_radius, net, strength=1.0):
+    def _edge_aa(self, image, thr, blur_radius, net, strength=1.0, luma_edge=None):
         # edge AA
         strength = clamp01(strength)
 
         if blur_radius <= 0 or strength <= MIN_EFFECT_STRENGTH:
             return image
 
-        _, edge = self._luma_edge(image, net)
+        _, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(image, net)
 
         mask = torch.sigmoid((edge - thr) * self.edge_aa_slope)
         mask = mask * strength
@@ -484,14 +486,14 @@ class VideoTAADLAA:
 
         return image * (1.0 - mask) + blurred * mask
 
-    def _fine_line_aa(self, image, net, strength):
+    def _fine_line_aa(self, image, net, strength, luma_edge=None):
         # thin-line shimmer control
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
             return image
 
-        luma, edge = self._luma_edge(image, net)
+        luma, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(image, net)
 
         dark_mask = torch.sigmoid(
             (self.detail_fine_line_dark_threshold - luma) * FINE_LINE_DARK_SLOPE
@@ -529,14 +531,14 @@ class VideoTAADLAA:
 
         return torch.lerp(image, aa_target, blend).clamp(0.0, 1.0)
 
-    def _specular_detail(self, image, net, highlight_mask, strength):
+    def _specular_detail(self, image, net, highlight_mask, strength, luma_edge=None):
         # controlled specular detail
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
             return image
 
-        luma, edge = self._luma_edge(image, net)
+        luma, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(image, net)
 
         local_avg = F.avg_pool2d(
             F.pad(image, [1, 1, 1, 1], mode="reflect"),
@@ -598,7 +600,6 @@ class VideoTAADLAA:
             self.detail_micro_contrast_limit,
         )
 
-        luma = rgb_luma(image)
         detail_energy = rgb_luma(residual.abs())
 
         detail_mask = torch.sigmoid(
@@ -608,6 +609,7 @@ class VideoTAADLAA:
         if highlight_mask is not None:
             protect = 1.0 - highlight_mask * self.detail_micro_contrast_highlight_protect
         else:
+            luma = rgb_luma(image)
             protect = (
                 1.0 -
                 torch.sigmoid(
@@ -625,13 +627,14 @@ class VideoTAADLAA:
         image: torch.Tensor,
         net,
         strength: float,
+        luma_edge=None,
     ) -> torch.Tensor:
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
             return image
 
-        luma, edge = self._luma_edge(image, net)
+        luma, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(image, net)
 
         edge_mask = torch.sigmoid(
             (edge - self.detail_dehalo_threshold) * self.edge_sharp_slope
@@ -672,13 +675,14 @@ class VideoTAADLAA:
         image: torch.Tensor,
         net,
         strength: float,
+        luma_edge=None,
     ) -> torch.Tensor:
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
             return image
 
-        luma, edge = self._luma_edge(image, net)
+        luma, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(image, net)
 
         edge_mask = torch.sigmoid(
             (edge - self.detail_chroma_edge_threshold) * self.edge_aa_slope
@@ -734,17 +738,18 @@ class VideoTAADLAA:
         net,
         motion_gate: float,
         strength: float,
+        luma_edge=None,
+        grid_cache=None,
     ) -> torch.Tensor:
         strength = clamp01(strength)
 
         if strength <= MIN_EFFECT_STRENGTH:
             return image
-            
-        luma = rgb_luma(image)
 
-        sx = F.conv2d(luma, net.sobel_x, padding=1)
-        sy = F.conv2d(luma, net.sobel_y, padding=1)
-        edge = torch.sqrt(sx * sx + sy * sy + 1e-6)
+        if luma_edge is not None and len(luma_edge) == 4:
+            _, edge, sx, sy = luma_edge
+        else:
+            _, edge, sx, sy = self._luma_edge(image, net, return_grad=True)
 
         edge_mask = torch.sigmoid(
             (edge - self.detail_subpixel_edge_threshold) *
@@ -762,13 +767,18 @@ class VideoTAADLAA:
         offset_x = nx.squeeze(1) * sample_scale * (2.0 / max(W - 1, 1))
         offset_y = ny.squeeze(1) * sample_scale * (2.0 / max(H - 1, 1))
 
-        yy, xx = torch.meshgrid(
-            torch.linspace(-1.0, 1.0, H, device=image.device, dtype=image.dtype),
-            torch.linspace(-1.0, 1.0, W, device=image.device, dtype=image.dtype),
-            indexing="ij",
-        )
-
-        base_grid = torch.stack((xx, yy), dim=-1).unsqueeze(0).repeat(B, 1, 1, 1)
+        grid_key = (B, H, W, image.device, image.dtype)
+        if grid_cache is not None and grid_key in grid_cache:
+            base_grid = grid_cache[grid_key]
+        else:
+            yy, xx = torch.meshgrid(
+                torch.linspace(-1.0, 1.0, H, device=image.device, dtype=image.dtype),
+                torch.linspace(-1.0, 1.0, W, device=image.device, dtype=image.dtype),
+                indexing="ij",
+            )
+            base_grid = torch.stack((xx, yy), dim=-1).unsqueeze(0).repeat(B, 1, 1, 1)
+            if grid_cache is not None:
+                grid_cache[grid_key] = base_grid
 
         offset = torch.stack((offset_x, offset_y), dim=-1)
 
@@ -986,6 +996,7 @@ class VideoTAADLAA:
         net,
         motion_gate: float,
         strength: float,
+        luma_edge=None,
     ) -> torch.Tensor:
         # stable fur/hair detail reuse
         strength = clamp01(strength)
@@ -996,7 +1007,7 @@ class VideoTAADLAA:
         if previous is None or previous.shape != image.shape:
             return image
 
-        _, edge = self._luma_edge(image, net)
+        _, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(image, net)
 
         local_avg = F.avg_pool2d(
             F.pad(image, [1, 1, 1, 1], mode="reflect"),
@@ -1116,26 +1127,29 @@ class VideoTAADLAA:
         return torch.clamp(current_base + stabilized_detail, 0.0, 1.0)
 
     def _resolve_frame_config(self, preset, is_single_image, rgb, taa):
-        if is_single_image:
-            frame_cfg = PRESETS["Photo"]
-
-        elif preset == "Auto":
-            if taa.history is not None and taa.history.shape == rgb.shape:
-                scene_motion = torch.abs(rgb - taa.history).mean().item()
+        if preset == "Auto":
+            if is_single_image:
+                frame_cfg = PRESETS["Photo"]
             else:
-                scene_motion = self.auto_default_scene_motion
+                if taa.history is not None and taa.history.shape == rgb.shape:
+                    scene_motion = torch.abs(rgb - taa.history).mean().item()
+                else:
+                    scene_motion = self.auto_default_scene_motion
 
-            if scene_motion < self.auto_static_motion_threshold:
-                frame_cfg = AUTO_STATIC
-            elif scene_motion < self.auto_balanced_motion_threshold:
-                frame_cfg = AUTO_BALANCED
-            else:
-                frame_cfg = AUTO_MOTION
+                if scene_motion < self.auto_static_motion_threshold:
+                    frame_cfg = AUTO_STATIC
+                elif scene_motion < self.auto_balanced_motion_threshold:
+                    frame_cfg = AUTO_BALANCED
+                else:
+                    frame_cfg = AUTO_MOTION
 
         else:
             frame_cfg = PRESETS.get(preset, PRESETS["Balanced"])
 
         cfg = frame_cfg.copy()
+        if is_single_image:
+            cfg["jitter_scale"] = 0.0
+            cfg["taa_strength"] = 0.0
         return cfg
 
     def _apply_texture_pass(
@@ -1577,12 +1591,13 @@ class VideoTAADLAA:
         micro_limit,
         edge_sharp_strength,
         highlight_mask,
+        luma_edge=None,
     ):
         
         local_avg_rgb = F.avg_pool2d(dlaa_out, 3, stride=1, padding=1)
         fine_detail_rgb = dlaa_out - local_avg_rgb
         
-        luma = rgb_luma(dlaa_out)
+        luma, edge = luma_edge[:2] if luma_edge is not None else self._luma_edge(dlaa_out, net)
         fine_detail = rgb_luma(fine_detail_rgb)
         
         texture_dark_mask = torch.clamp(
@@ -1609,12 +1624,6 @@ class VideoTAADLAA:
         
         local_detail = F.avg_pool2d(fine_detail.abs(), 7, stride=1, padding=3)
         global_detail = fine_detail.abs().mean(dim=(1, 2, 3), keepdim=True)
-        
-        edge = torch.sqrt(
-            F.conv2d(luma, net.sobel_x, padding=1) ** 2 +
-            F.conv2d(luma, net.sobel_y, padding=1) ** 2 +
-            1e-6
-        )
         
         edge_detail_weight = torch.sigmoid(
             (edge - self.edge_sharp_threshold) * self.edge_sharp_slope
@@ -1659,7 +1668,6 @@ class VideoTAADLAA:
         tone_mapped = dlaa_out / (dlaa_out + self.tone_curve_bias)
         dlaa_out = torch.lerp(dlaa_out, tone_mapped, highlight_mask * tone_strength)
         
-        luma = rgb_luma(dlaa_out)
         luma_boost = (
             self.luma_boost_base *
             luma_boost_mult *
@@ -1746,6 +1754,7 @@ class VideoTAADLAA:
         prev_dlaa_output,
         debug_stats,
         frame_index,
+        grid_cache=None,
     ):
         # main DLAA pipeline
         
@@ -1826,6 +1835,17 @@ class VideoTAADLAA:
             motion_stability=motion_stability,
             frame_index=frame_index,
         )
+
+        if is_detail or is_performance:
+            post_tex_luma_edge = self._luma_edge(
+                dlaa_out,
+                net,
+                return_grad=is_detail,
+            )
+            luma_edge_2d = post_tex_luma_edge[:2]
+        else:
+            post_tex_luma_edge = None
+            luma_edge_2d = None
         
         if is_detail:
             dlaa_out = self._specular_detail(
@@ -1833,6 +1853,7 @@ class VideoTAADLAA:
                 net,
                 highlight_mask,
                 self.detail_specular_strength,
+                luma_edge=luma_edge_2d,
             )
 
         if is_detail or is_performance:
@@ -1846,12 +1867,14 @@ class VideoTAADLAA:
                 dlaa_out,
                 net,
                 self.detail_dehalo_strength * perf_scale,
+                luma_edge=luma_edge_2d,
             )
 
             dlaa_out = self._chroma_edge_cleanup(
                 dlaa_out,
                 net,
                 self.detail_chroma_cleanup_strength * perf_scale,
+                luma_edge=luma_edge_2d,
             )
 
         if is_detail:
@@ -1860,6 +1883,8 @@ class VideoTAADLAA:
                 net,
                 motion_gate,
                 self.detail_subpixel_edge_strength,
+                luma_edge=post_tex_luma_edge,
+                grid_cache=grid_cache,
             )
 
             dlaa_out = self._local_tone_mapping(
@@ -1932,7 +1957,7 @@ class VideoTAADLAA:
         
         B, H, W, C = images.shape
         is_single_image = (B == 1)
-        run_preset = "Photo" if is_single_image else preset
+        run_preset = "Photo" if (is_single_image and preset == "Auto") else preset
         
         # process RGB, preserve extra channels
         extra_channels = None
@@ -1950,6 +1975,7 @@ class VideoTAADLAA:
         # per-run temporal state
         taa = TAAState()
         prev_dlaa_output = None
+        grid_cache = {}
         
         net = self._net(device)
         texture_net = self._texture_net_for_run(device, run_preset, texture_intensity)
@@ -1974,82 +2000,86 @@ class VideoTAADLAA:
         
         progress = ProgressBar(B) if ProgressBar is not None else None
         
-        with torch.inference_mode():
-            for i in range(B):
-                # allow ComfyUI interruption
-                if mm is not None and hasattr(mm, "throw_exception_if_processing_interrupted"):
-                    mm.throw_exception_if_processing_interrupted()
+        try:
+            with torch.inference_mode():
+                for i in range(B):
+                    # allow ComfyUI interruption
+                    if mm is not None and hasattr(mm, "throw_exception_if_processing_interrupted"):
+                        mm.throw_exception_if_processing_interrupted()
 
-                rgb = self._load_frame(images, i, device)
-                
-                frame_cfg = self._resolve_frame_config(
-                    run_preset,
-                    is_single_image,
-                    rgb,
-                    taa,
-                )
-                params = self._frame_params(frame_cfg, dlaa_intensity)
-                
-                rgb, motion_gate = self._apply_jitter_and_taa(
-                    rgb,
-                    taa,
-                    net,
-                    params["motion_sensitivity"],
-                    params["jitter_scale"],
-                    params["taa_strength"],
-                    blur_radius,
-                    edge_aa_strength,
-                )
-                
-                rgb, prev_dlaa_output, model_delta_value = self._apply_dlaa_pipeline(
-                    rgb=rgb,
-                    net=net,
-                    texture_net=texture_net,
-                    preset=run_preset,
-                    tile_size=tile_size,
-                    motion_gate=motion_gate,
-                    detail_boost=params["detail_boost"],
-                    edge_boost=params["edge_boost"],
-                    temporal_strength=params["temporal_strength"],
-                    micro_limit=params["micro_limit"],
-                    luma_boost_mult=params["luma_boost_mult"],
-                    saturation_boost_mult=params["saturation_boost_mult"],
-                    motion_threshold=params["motion_threshold"],
-                    dlaa_strength=params["dlaa_strength"],
-                    tone_strength=params["tone_strength"],
-                    edge_sharp_strength=params["edge_sharp_strength"],
-                    motion_stability=motion_stability,
-                    texture_intensity=texture_intensity,
-                    prev_dlaa_output=prev_dlaa_output,
-                    debug_stats=debug_stats,
-                    frame_index=i,
-                )
-                
-                if debug_stats and model_delta_value is not None:
-                    delta_sum += model_delta_value
-                    delta_count += 1
+                    rgb = self._load_frame(images, i, device)
                     
-                rgb = torch.clamp(rgb, 0.0, 1.0)
-                frame_out = rgb.permute(0, 2, 3, 1).detach().cpu()
+                    frame_cfg = self._resolve_frame_config(
+                        run_preset,
+                        is_single_image,
+                        rgb,
+                        taa,
+                    )
+                    params = self._frame_params(frame_cfg, dlaa_intensity)
+                    
+                    rgb, motion_gate = self._apply_jitter_and_taa(
+                        rgb,
+                        taa,
+                        net,
+                        params["motion_sensitivity"],
+                        params["jitter_scale"],
+                        params["taa_strength"],
+                        blur_radius,
+                        edge_aa_strength,
+                    )
+                    
+                    rgb, prev_dlaa_output, model_delta_value = self._apply_dlaa_pipeline(
+                        rgb=rgb,
+                        net=net,
+                        texture_net=texture_net,
+                        preset=run_preset,
+                        tile_size=tile_size,
+                        motion_gate=motion_gate,
+                        detail_boost=params["detail_boost"],
+                        edge_boost=params["edge_boost"],
+                        temporal_strength=params["temporal_strength"],
+                        micro_limit=params["micro_limit"],
+                        luma_boost_mult=params["luma_boost_mult"],
+                        saturation_boost_mult=params["saturation_boost_mult"],
+                        motion_threshold=params["motion_threshold"],
+                        dlaa_strength=params["dlaa_strength"],
+                        tone_strength=params["tone_strength"],
+                        edge_sharp_strength=params["edge_sharp_strength"],
+                        motion_stability=motion_stability,
+                        texture_intensity=texture_intensity,
+                        prev_dlaa_output=prev_dlaa_output,
+                        debug_stats=debug_stats,
+                        frame_index=i,
+                        grid_cache=grid_cache,
+                    )
+                    
+                    if debug_stats and model_delta_value is not None:
+                        delta_sum += model_delta_value
+                        delta_count += 1
+                        
+                    rgb = torch.clamp(rgb, 0.0, 1.0)
+                    frame_out = rgb.permute(0, 2, 3, 1).detach().cpu()
 
-                if frame_out.dtype != out_tensor.dtype:
-                    frame_out = frame_out.to(out_tensor.dtype)
+                    if frame_out.dtype != out_tensor.dtype:
+                        frame_out = frame_out.to(out_tensor.dtype)
 
-                if extra_channels is not None:
-                    frame_extra = extra_channels[i:i + 1]
+                    if extra_channels is not None:
+                        frame_extra = extra_channels[i:i + 1]
 
-                    if frame_extra.dtype != frame_out.dtype:
-                        frame_extra = frame_extra.to(frame_out.dtype)
+                        if frame_extra.dtype != frame_out.dtype:
+                            frame_extra = frame_extra.to(frame_out.dtype)
 
-                    frame_out = torch.cat((frame_out, frame_extra), dim=-1)
+                        frame_out = torch.cat((frame_out, frame_extra), dim=-1)
 
-                out_tensor[i:i + 1].copy_(frame_out)
+                    out_tensor[i:i + 1].copy_(frame_out)
 
-                if progress is not None:
-                    progress.update(1)
+                    if progress is not None:
+                        progress.update(1)
 
-                if mm is not None and i > 0 and i % 50 == 0:
-                    mm.soft_empty_cache()
+                    if mm is not None and i > 0 and i % 50 == 0:
+                        mm.soft_empty_cache()
+        finally:
+            grid_cache.clear()
 
         if debug_stats and delta_count > 0:
             log.debug(f"[DLAA] model_delta_avg={delta_sum / delta_count:.6f}")
