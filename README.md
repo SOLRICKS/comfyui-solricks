@@ -150,11 +150,7 @@ https://github.com/user-attachments/assets/9772e56f-6c9f-4dc0-a8c9-03701fb25102
 	<td align="center"><strong></strong></td>
   </tr>
   <tr>
-    <td width="33%"><video src="https://github.com/user-attachments/assets/4109726e-c5db-404b-9c0d-23d49b9641cf" width="100%" controls autoplay muted loop>
-  </video></td>
-    <td width="33%"><video src="https://github.com/user-attachments/assets/05f8cbb1-9388-44e5-9274-0ee80d6aa37b" width="100%" controls autoplay muted loop>
-  </video></td>
-    <td width="33%"><video src="https://github.com/user-attachments/assets/ddf7c74b-289d-48a7-ab43-47558aa9deab" width="100%" controls autoplay muted loop>
+    <td width="100%"><video src="https://github.com/user-attachments/assets/ddf7c74b-289d-48a7-ab43-47558aa9deab" width="100%" controls autoplay muted loop>
   </video></td>
   </tr>
 </table>
